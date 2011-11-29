@@ -3,12 +3,14 @@
 /*****************************************************************************/
 
 #include "buf.h"
+#include <iostream>
+using namespace std;
 
 // Define buffer manager error messages
 
 static const char* bufErrMsgs[] = {
-// todo: error message strings go here
-        };
+
+"PAGE_NOT_FOUND", "PAGE_PINNED", "BUFFER_FULL", "PIN_LOCKED_PAGE", "POOL_FULL", "PIN_COUNTE_RROR" };
 
 // Create a static "error_string_table" object and register the error messages
 // with minibase system 
@@ -32,8 +34,8 @@ BufMgr::BufMgr(int numbuf, Replacer* replacer) {
 	minibase_globals->DummyBufMgr = this;
 	replacer = 0; // DISREGARD THE PARAMETER
 	// ===========================================================
-
 	poolsize = numbuf;
+	//cout << numbuf << endl;
 	frames = new Page[numbuf];
 	descs = new FrameDesc[numbuf];
 }
@@ -46,27 +48,41 @@ BufMgr::~BufMgr() {
 }
 
 Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
+
 	int frame = table.get(PageId_in_a_DB);
 	if (frame >= 0) {
 		if (descs[frame].pinCount == 0) {
 			hatelist.remove(frame);
 			lovelist.remove(frame);
 		} else {
-			if (descs[frame].mode == READ_WRITE_MODE || descs[frame].mode == READ_WRITE_MODE)
+			if (descs[frame].mode == READ_WRITE_MODE || mode == READ_WRITE_MODE)
 				return MINIBASE_FIRST_ERROR(BUFMGR, PIN_LOCKED_PAGE);
 		}
+		descs[frame].mode = mode;
 		descs[frame].dirty = false;
 		descs[frame].pinCount++;
 		page = &(frames[frame]);
 		return OK;
 	} else {
 		frame = getFreeFrame();
-		if (frame > 0) {
+		if (frame >= 0) {
+			if (descs[frame].pageNumber >= 0) {
+				//cout << "recucle frame " << frame << "( page " << descs[frame].pageNumber << " )" << endl;
+				if (descs[frame].dirty) {
+					//cout << "writeback " << (char*) &frames[frame] << endl;
+					Status st = MINIBASE_DB->write_page(descs[frame].pageNumber, &frames[frame]);
+					if (st != OK)
+						return MINIBASE_CHAIN_ERROR(BUFMGR, st);
+				}
+				table.remove(descs[frame].pageNumber);
+			}
 			Status st = MINIBASE_DB->read_page(PageId_in_a_DB, &frames[frame]);
 			if (st != OK)
 				return MINIBASE_CHAIN_ERROR(BUFMGR, st);
 			table.put(PageId_in_a_DB, frame);
-			descs[frame].pageNumber = PageId_in_a_DB;
+			//cout << "frame: " << frame << ":" << table.get(PageId_in_a_DB) << endl;
+			descs[frame].init(PageId_in_a_DB, mode, 1, false);
+			page = &(frames[frame]);
 		} else {
 			return MINIBASE_FIRST_ERROR(BUFMGR, POOL_FULL);
 		}
@@ -75,13 +91,15 @@ Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
 }
 
 // **********************************************************
-Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hate = FALSE) {
+Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = false, int hate = false) {
 	int frame = table.get(globalPageId_in_a_DB);
 	if (frame >= 0) {
 		if (descs[frame].pinCount == 0) {
 			return MINIBASE_FIRST_ERROR(BUFMGR, PIN_COUNTE_RROR);
 		}
-		if (dirty) {
+		//cout << "unpin " << globalPageId_in_a_DB << ", frame:" << frame << ", dest: " << descs[frame].pageNumber << endl;
+		if (dirty == true) {
+			//cout << "writeback " << (char*) &frames[frame] << endl;
 			Status st = MINIBASE_DB->write_page(descs[frame].pageNumber, &frames[frame]);
 			if (st != OK)
 				return MINIBASE_CHAIN_ERROR(BUFMGR, st);
@@ -99,7 +117,7 @@ Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hat
 					break;
 				}
 			}
-			if (!found) {
+			if (found == false) {
 				hatelist.remove(frame);
 				hatelist.push_front(frame);
 			}
@@ -113,10 +131,10 @@ Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hat
 			lovelist.remove(frame);
 			lovelist.push_front(frame);
 		}
+		return OK;
 	} else {
 		return MINIBASE_FIRST_ERROR(BUFMGR, PAGE_NOT_FOUND);
 	}
-	return OK;
 }
 
 // **********************************************************
@@ -203,6 +221,16 @@ int BufMgr::getFreeFrame() {
 	int frame = findFreeFrame();
 	if (frame >= 0)
 		return frame;
+	if (!hatelist.empty()) {
+		frame = hatelist.front();
+		hatelist.pop_front();
+		return frame;
+	}
+	if (!lovelist.empty()) {
+		frame = lovelist.back();
+		lovelist.pop_back();
+		return frame;
+	}
 	return -1;
 }
 

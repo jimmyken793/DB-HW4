@@ -71,13 +71,13 @@ class FrameDesc {
 		void init() {
 			init(-1, READ_MODE, 0, false);
 		}
-		void init(unsigned int pageNumber, MODE mode, unsigned int pinCount, bool dirty) {
+		void init(int pageNumber, MODE mode, unsigned int pinCount, bool dirty) {
 			this->pageNumber = pageNumber;
 			this->mode = mode;
 			this->pinCount = pinCount;
 			this->dirty = dirty;
 		}
-		unsigned int pageNumber, pinCount;
+		int pageNumber, pinCount;
 		MODE mode;
 		bool dirty;
 };
