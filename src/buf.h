@@ -2,11 +2,13 @@
 /////////////  The Header File for the Buffer Manager /////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+
 #ifndef BUF_H
 #define BUF_H
 
 #include "db.h"
 #include "page.h"
+#include <list>
 
 #define NUMBUF 20   
 // Default number of frames, artifically small number for ease of debugging.
@@ -14,13 +16,20 @@
 #define HTSIZE 7
 // Hash Table size
 
-int hash(int i);
+#define FrameId int
 
 /*******************ALL BELOW are purely local to buffer Manager********/
 
 // You should create enums for internal errors in the buffer manager.
 enum bufErrCodes {
-	PAGE_NOT_FOUND, PAGE_PINNED
+    HASHRROR, 
+    HASHRMFOUND,
+    BUFFEREXCEEDED,
+    PINMODEERROR,
+    PAGENOTFOUND,
+    PINCOUNTERROR,
+    NOAVAILPOOL,
+    PAGEISBUSY
 };
 
 class Replacer;
@@ -29,21 +38,45 @@ enum MODE {
 	READ_MODE, READ_WRITE_MODE
 };
 
-class Descriptor {
-	public:
-		Descriptor();
-		unsigned int pageNumber, mode, pinCount, dirtybit;
+class FrameDescr {
+    public:
+        FrameDescr() {
+            clear();
+        }
+        void clear() {
+            pin_count = 0;
+            dirty = false;
+            free = true;
+        }
+        PageId page_no;
+        int pin_count;
+        MODE mode;
+        bool dirty, free;
+};
+
+class HashTable {
+    public:
+        void insert(PageId i_page_no, FrameId i_frame_no);
+        FrameId getFrameId(PageId q_page_no);
+        bool remove(PageId r_page_no);
+    private:
+        list<pair<PageId, FrameId> > hash_table[HTSIZE];
 };
 
 class BufMgr {
 
 	public:
-		unsigned int poolsize;
-		Page* pages;
-		Descriptor* descriptors;
+
+		Page* bufPool;
 		// The physical buffer pool of pages.
 
-		BufMgr(int numbuf, Replacer *replacer = 0);
+        FrameDescr* bufDescr;
+        // The frame of descriptor.
+        
+        HashTable hash_table;
+        // Hash table.
+
+		BufMgr (int numbuf, Replacer *replacer = 0); 
 		// Initializes a buffer manager managing "numbuf" buffers.
 		// Disregard the "replacer" parameter for now. In the full 
 		// implementation of minibase, it is a pointer to an object
@@ -71,14 +104,15 @@ class BufMgr {
 		// exclusive condition is hold, else return error
 
 		Status unpinPage(PageId globalPageId_in_a_DB, int dirty, int hate);
-		// hate should be TRUE if type page is “hated” and d.
+		// hate should be TRUE if type page is “hated” and 
+		// FALSE if the is loved. 
 		// User should call this with dirty = TRUE if the page
 		// has be modified.
 		// If so, this call should set the dirty bit for this frame.
 		// Further, if pin_count > 0, should decrement it. 
 		// If pin_count = 0 before this call, return error.
 
-		Status newPage(PageId& firstPageId, Page*& firstpage, int howmany = 1);
+		Status newPage(PageId& firstPageId, Page*& firstpage, int howmany=1); 
 		// Find a frame in the buffer pool for the first page. 
 		// If a frame exists, call DB object to allocate a run 
 		// of new pages and pin it in read_write_mode. 
@@ -87,7 +121,8 @@ class BufMgr {
 		// If buffer is full, i.e., you can’t find a frame 
 		// for the first page, return error. 
 		
-		Status freePage(PageId globalPageId);
+
+		Status freePage(PageId globalPageId); 
 		// user should call this method if it needs to delete a page
 		// this routine will call DB to deallocate the page 
 		// (When the page is be pinned you should return error.)
@@ -97,19 +132,27 @@ class BufMgr {
 		// (without modify love/hate list)
 		// Should call the write_page method of the DB class
 		
+
 		Status flushAllPages();
 		// Flush all pages of the buffer pool to disk, as per flushPage.
-
-		Page* getPage(PageId pageid);
-		int getPagePos(PageId pageid);
+        
+        // Self define function.
+        FrameId getAvailableFrameId();
+        FrameId getFreeFrameId();
 
 		// DO NOT REMOVE THESE METHODS ================================================
 		// For backward compatibility with lib
-		Status pinPage(PageId PageId_in_a_DB, Page*& page, int emptyPage = 0);
-		Status unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE) {
+		Status pinPage(PageId PageId_in_a_DB, Page*& page, int emptyPage=0);
+
+		Status unpinPage(PageId globalPageId_in_a_DB, int dirty=FALSE)
+		{
 			return unpinPage(globalPageId_in_a_DB, dirty, FALSE);
 		}
 		// ===========================================================================
+
+    private:
+        list<FrameId> love_list, hate_list;
+        int free_buf_n, buf_number;
 };
 
 #endif

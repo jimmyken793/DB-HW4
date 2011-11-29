@@ -73,6 +73,7 @@ int BMTester::test1()
         	if (strcmp(data,(char*)pg)) {
             		st = FAIL;
             		cout << "Error: page content incorrect!\n";
+                    cout << "----" << (char*)pg << "\n";
         	}
         	if (MINIBASE_BM->unpinPage(i)!=OK)  {
             		st = FAIL;
@@ -212,13 +213,13 @@ int BMTester::test3()
       cout << "pin page " << i << " " << pages[i] << endl;
       if (MINIBASE_BM->pinPage(pages[i], pgptr)!= OK) {
         st = FAIL;
-	cout << "Error: pinPage failed...\n";
+	cout << "1 Error: pinPage failed...\n";
       }
 
       cout << "pin page " << i << " " << pages[i] << endl;
       if (MINIBASE_BM->pinPage(pages[i], pgptr)!= OK) {
         st = FAIL;
-	cout << "Error: pinPage failed...\n";
+	cout << "2 Error: pinPage failed...\n";
       }
       if (pgptr != pagesptrs[i]) {
         st = FAIL;

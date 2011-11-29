@@ -33,8 +33,6 @@ $(MAIN):  $(OBJS)
 depend: $(SRCS)
 	makedepend $(INCLUDES) $^
 
-all: $(MAIN)
-
 clean:
 	rm -f *.o *~ $(MAIN)
 	rm -f my_output
