@@ -21,15 +21,6 @@ int hash(int i) {
 	return i % HTSIZE;
 }
 
-
-
-Descriptor::Descriptor() {
-	pageNumber = -1;
-	mode = 0;
-	pinCount = 0;
-	dirtybit = 0;
-}
-
 // **********************************************************
 // Class Buffer Manager
 // **********************************************************
@@ -41,16 +32,17 @@ BufMgr::BufMgr(int numbuf, Replacer* replacer) {
 	minibase_globals->DummyBufMgr = this;
 	replacer = 0; // DISREGARD THE PARAMETER
 	// ===========================================================
-	pages = new Page[numbuf];
-	descriptors = new Descriptor[numbuf];
+
+	poolsize = numbuf;
+	frames = new Page[numbuf];
+	descs = new FrameDesc[numbuf];
 }
 
 // **********************************************************
 // BufMgr class destructor
 BufMgr::~BufMgr() {
-	delete[] pages;
-	delete[] descriptors;
-
+	delete[] frames;
+	delete[] descs;
 }
 
 Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
@@ -68,16 +60,25 @@ Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hat
 Status BufMgr::newPage(PageId& firstPageId, Page*& firstPage, int howmany) {
 	// DO NOT REMOVE THIS LINE =========================
 	howmany = 1;
+	int frame = getFreeFrame();
+	if (frame < 0) {
+		return MINIBASE_FIRST_ERROR(BUFMGR, BUFFER_FULL);
+	}
+	Status ast = MINIBASE_DB->allocate_page(firstPageId, howmany);
+	if (ast != OK)
+		return MINIBASE_CHAIN_ERROR(BUFMGR, ast);
 
-	MINIBASE_DB->allocate_page(firstPageId, howmany);
+	descs[frame].init(firstPageId, READ_WRITE_MODE, 1, false);
+	firstPage = &frames[frame];
+	return OK;
 	return OK;
 }
 
 // **********************************************************
 Status BufMgr::freePage(PageId globalPageId) {
-	int pos = getPagePos(globalPageId);
+	int pos = getFrame(globalPageId);
 	if (pos >= 0) {
-		if (descriptors[pos].pinCount > 0) {
+		if (descs[pos].pinCount > 0) {
 			return MINIBASE_FIRST_ERROR(BUFMGR,PAGE_PINNED);
 		}
 	}
@@ -106,8 +107,8 @@ Status BufMgr::flushPage(PageId pageId) {
 // **********************************************************
 Status BufMgr::flushAllPages() {
 	for (unsigned int i = 0; i < poolsize; i++) {
-		if (descriptors[i].pageNumber >= 0) {
-			Status result = flushPage(descriptors[i].pageNumber);
+		if (descs[i].pageNumber >= 0) {
+			Status result = flushPage(descs[i].pageNumber);
 			if (result != OK) {
 				return MINIBASE_CHAIN_ERROR(BUFMGR, result);
 			}
@@ -118,15 +119,24 @@ Status BufMgr::flushAllPages() {
 
 Page* BufMgr::getPage(PageId pageid) {
 	for (unsigned int i = 0; i < poolsize; i++) {
-		if (descriptors[i].pageNumber == poolsize) {
-			return &(pages[i]);
+		if (descs[i].pageNumber == poolsize) {
+			return &(frames[i]);
 		}
 	}
 	return NULL;
 }
-int BufMgr::getPagePos(PageId pageid) {
+int BufMgr::getFrame(PageId pageid) {
 	for (unsigned int i = 0; i < poolsize; i++) {
-		if (descriptors[i].pageNumber == poolsize) {
+		if (descs[i].pageNumber == poolsize) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+int BufMgr::getFreeFrame() {
+	for (unsigned int i = 0; i < poolsize; i++) {
+		if (descs[i].pageNumber < 0) {
 			return i;
 		}
 	}

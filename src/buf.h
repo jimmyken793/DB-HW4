@@ -7,6 +7,7 @@
 
 #include "db.h"
 #include "page.h"
+#include <list>
 
 #define NUMBUF 20   
 // Default number of frames, artifically small number for ease of debugging.
@@ -20,7 +21,7 @@ int hash(int i);
 
 // You should create enums for internal errors in the buffer manager.
 enum bufErrCodes {
-	PAGE_NOT_FOUND, PAGE_PINNED
+	PAGE_NOT_FOUND, PAGE_PINNED, BUFFER_FULL
 };
 
 class Replacer;
@@ -28,19 +29,66 @@ class Replacer;
 enum MODE {
 	READ_MODE, READ_WRITE_MODE
 };
-
-class Descriptor {
+class Map {
 	public:
-		Descriptor();
-		unsigned int pageNumber, mode, pinCount, dirtybit;
+		int get(PageId id) {
+			int pos = id % HTSIZE;
+			for (list<pair<PageId, int> >::const_iterator iter = table[pos].begin(); iter != table[pos].end(); iter++) {
+				if (iter->first == id) {
+					return iter->second;
+				}
+			}
+			return -1;
+		}
+		void put(PageId pid, int id) {
+			int pos = pid % HTSIZE;
+			table[pos].push_back(make_pair(pid, id));
+		}
+		int remove(PageId id) {
+			if (id < 0)
+				return 0;
+			int pos = id % HTSIZE;
+			for (list<pair<PageId, int> >::iterator iter = table[pos].begin(); iter != table[pos].end(); iter++) {
+				if (iter->first == id) {
+					table[pos].erase(iter);
+					return 1;
+				}
+			}
+			return 0;
+		}
+	private:
+		list<pair<PageId, int> > table[HTSIZE];
+};
+
+class FrameDesc {
+	public:
+		FrameDesc() {
+			init();
+		}
+
+		void init() {
+			init(-1, READ_MODE, 0, false);
+		}
+		void init(unsigned int pageNumber, MODE mode, unsigned int pinCount, bool dirty) {
+			this->pageNumber = pageNumber;
+			this->mode = mode;
+			this->pinCount = pinCount;
+			this->dirty = dirty;
+		}
+		unsigned int pageNumber, pinCount;
+		MODE mode;
+		bool dirty;
 };
 
 class BufMgr {
+	private:
+		unsigned int poolsize;
+		Page* frames;
+		FrameDesc* descs;
+		list<int> hatelist;
+		list<int> lovelist;
 
 	public:
-		unsigned int poolsize;
-		Page* pages;
-		Descriptor* descriptors;
 		// The physical buffer pool of pages.
 
 		BufMgr(int numbuf, Replacer *replacer = 0);
@@ -101,7 +149,8 @@ class BufMgr {
 		// Flush all pages of the buffer pool to disk, as per flushPage.
 
 		Page* getPage(PageId pageid);
-		int getPagePos(PageId pageid);
+		int getFrame(PageId pageid);
+		int getFreeFrame();
 
 		// DO NOT REMOVE THESE METHODS ================================================
 		// For backward compatibility with lib
