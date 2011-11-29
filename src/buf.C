@@ -61,6 +61,7 @@ Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
 		descs[frame].mode = mode;
 		descs[frame].dirty = false;
 		descs[frame].pinCount++;
+		//cout << "pin   page " << PageId_in_a_DB << " pincount " << descs[frame].pinCount << endl;
 		page = &(frames[frame]);
 		return OK;
 	} else {
@@ -82,6 +83,7 @@ Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
 			table.put(PageId_in_a_DB, frame);
 			//cout << "frame: " << frame << ":" << table.get(PageId_in_a_DB) << endl;
 			descs[frame].init(PageId_in_a_DB, mode, 1, false);
+			//cout << "pin   page " << PageId_in_a_DB << " pincount " << descs[frame].pinCount << endl;
 			page = &(frames[frame]);
 		} else {
 			return MINIBASE_FIRST_ERROR(BUFMGR, POOL_FULL);
@@ -106,6 +108,7 @@ Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = false, int hat
 		}
 		descs[frame].dirty = dirty;
 		descs[frame].pinCount--;
+		//cout << "unpin page " << globalPageId_in_a_DB << " pincount " << descs[frame].pinCount << endl;
 		if (descs[frame].pinCount > 0) {
 			return OK;
 		}
@@ -145,9 +148,11 @@ Status BufMgr::newPage(PageId& firstPageId, Page*& firstPage, int howmany) {
 	if (frame < 0) {
 		return MINIBASE_FIRST_ERROR(BUFMGR, BUFFER_FULL);
 	}
+	//cout << frame << ":" << descs[frame].pageNumber << endl;
 	Status st = MINIBASE_DB->allocate_page(firstPageId, howmany);
 	if (st != OK)
 		return MINIBASE_CHAIN_ERROR(BUFMGR, st);
+	//cout << "firstPageId: " << firstPageId << endl;
 	descs[frame].init(firstPageId, READ_WRITE_MODE, 1, false);
 	firstPage = &frames[frame];
 	table.put(firstPageId, frame);
@@ -156,19 +161,20 @@ Status BufMgr::newPage(PageId& firstPageId, Page*& firstPage, int howmany) {
 
 // **********************************************************
 Status BufMgr::freePage(PageId globalPageId) {
-	int pos = getFrame(globalPageId);
-	if (pos >= 0) {
-		if (descs[pos].pinCount > 0) {
+	int frame = getFrame(globalPageId);
+	if (frame >= 0) {
+		if (descs[frame].pinCount > 0) {
+			//cout << "free page " << globalPageId << " pincount " << descs[frame].pinCount << endl;
 			return MINIBASE_FIRST_ERROR(BUFMGR,PAGE_PINNED);
 		}
+		//cout << "free frame " << frame << endl;
+		Status dst = MINIBASE_DB->deallocate_page(globalPageId);
+		if (dst != OK)
+			return MINIBASE_CHAIN_ERROR(BUFMGR, dst);
+		descs[frame].init();
 		table.remove(globalPageId);
 	}
-	Status st = MINIBASE_DB->allocate_page(globalPageId, 1);
-	if (st != OK) {
-		return MINIBASE_CHAIN_ERROR(BUFMGR, st);
-	} else {
-		return st;
-	}
+	return OK;
 }
 
 // **********************************************************
