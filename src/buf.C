@@ -18,7 +18,7 @@ static error_string_table bufTable(BUFMGR, bufErrMsgs);
 // todo: Design your own hash table and replacement policy here.
 
 Descriptor::Descriptor() {
-	pageNumber = 0;
+	pageNumber = -1;
 	mode = 0;
 	pinCount = 0;
 	dirtybit = 0;
@@ -35,14 +35,16 @@ BufMgr::BufMgr(int numbuf, Replacer* replacer) {
 	minibase_globals->DummyBufMgr = this;
 	replacer = 0; // DISREGARD THE PARAMETER
 	// ===========================================================
-	bufPool = new Page[numbuf];
-	descPool = new Descriptor[numbuf];
+	pages = new Page[numbuf];
+	descriptors = new Descriptor[numbuf];
 }
 
 // **********************************************************
 // BufMgr class destructor
 BufMgr::~BufMgr() {
-	delete[] bufPool;
+	delete[] pages;
+	delete[] descriptors;
+
 }
 
 Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
@@ -60,26 +62,69 @@ Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hat
 Status BufMgr::newPage(PageId& firstPageId, Page*& firstPage, int howmany) {
 	// DO NOT REMOVE THIS LINE =========================
 	howmany = 1;
-	// ================================================
-	return MINIBASE_DB->allocate_page(PageId& firstPageId, howmany);
+
+	MINIBASE_DB->allocate_page(firstPageId, howmany);
+	return OK;
 }
 
 // **********************************************************
 Status BufMgr::freePage(PageId globalPageId) {
-
-	return OK;
+	int pos=getPagePos(globalPageId);
+	if(pos>=0){
+		if(descriptors[pos].pinCount>0){
+			return MINIBASE_FIRST_ERROR(BUFMGR,PAGE_PINNED);
+		}
+	}
+	Status st = MINIBASE_DB->allocate_page(globalPageId, 1);
+	if (st != OK) {
+		return MINIBASE_CHAIN_ERROR(BUFMGR, st);
+	} else {
+		return st;
+	}
 }
 
 // **********************************************************
 Status BufMgr::flushPage(PageId pageId) {
-	// todo: fill the body
-	return OK;
+	Page* page = getPage(pageId);
+	if (page != NULL) {
+		Status st = MINIBASE_DB->write_page(pageId, page);
+		if (st != OK) {
+			return MINIBASE_CHAIN_ERROR(BUFMGR, st);
+		} else {
+			return st;
+		}
+	}
+	return MINIBASE_FIRST_ERROR(BUFMGR,PAGE_NOT_FOUND);
 }
 
 // **********************************************************
 Status BufMgr::flushAllPages() {
-	// todo: fill the body
+	for (unsigned int i = 0; i < poolsize; i++) {
+		if (descriptors[i].pageNumber >= 0) {
+			Status result = flushPage(descriptors[i].pageNumber);
+			if (result != OK) {
+				return MINIBASE_CHAIN_ERROR(BUFMGR, result);
+			}
+		}
+	}
 	return OK;
+}
+
+Page* BufMgr::getPage(PageId pageid) {
+	for (unsigned int i = 0; i < poolsize; i++) {
+		if (descriptors[i].pageNumber == poolsize) {
+			return &(pages[i]);
+		}
+	}
+	return NULL;
+}
+int BufMgr::getPagePos(PageId pageid) {
+	for (unsigned int i = 0; i < poolsize; i++) {
+		if (descriptors[i].pageNumber == poolsize) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 // **********************************************************

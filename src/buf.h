@@ -18,6 +18,7 @@
 
 // You should create enums for internal errors in the buffer manager.
 enum bufErrCodes {
+	PAGE_NOT_FOUND, PAGE_PINNED
 };
 
 class Replacer;
@@ -35,9 +36,9 @@ class Descriptor {
 class BufMgr {
 
 	public:
-
-		Page* bufPool;
-		Descriptor* descPool;
+		unsigned int poolsize;
+		Page* pages;
+		Descriptor* descriptors;
 		// The physical buffer pool of pages.
 
 		BufMgr(int numbuf, Replacer *replacer = 0);
@@ -97,10 +98,12 @@ class BufMgr {
 		Status flushAllPages();
 		// Flush all pages of the buffer pool to disk, as per flushPage.
 
+		Page* getPage(PageId pageid);
+		int getPagePos(PageId pageid);
+
 		// DO NOT REMOVE THESE METHODS ================================================
 		// For backward compatibility with lib
 		Status pinPage(PageId PageId_in_a_DB, Page*& page, int emptyPage = 0);
-
 		Status unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE) {
 			return unpinPage(globalPageId_in_a_DB, dirty, FALSE);
 		}
