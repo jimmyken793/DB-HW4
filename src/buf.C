@@ -17,6 +17,12 @@ static error_string_table bufTable(BUFMGR, bufErrMsgs);
 
 // todo: Design your own hash table and replacement policy here.
 
+int hash(int i) {
+	return i % HTSIZE;
+}
+
+
+
 Descriptor::Descriptor() {
 	pageNumber = -1;
 	mode = 0;
@@ -69,9 +75,9 @@ Status BufMgr::newPage(PageId& firstPageId, Page*& firstPage, int howmany) {
 
 // **********************************************************
 Status BufMgr::freePage(PageId globalPageId) {
-	int pos=getPagePos(globalPageId);
-	if(pos>=0){
-		if(descriptors[pos].pinCount>0){
+	int pos = getPagePos(globalPageId);
+	if (pos >= 0) {
+		if (descriptors[pos].pinCount > 0) {
 			return MINIBASE_FIRST_ERROR(BUFMGR,PAGE_PINNED);
 		}
 	}

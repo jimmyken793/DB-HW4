@@ -14,6 +14,8 @@
 #define HTSIZE 7
 // Hash Table size
 
+int hash(int i);
+
 /*******************ALL BELOW are purely local to buffer Manager********/
 
 // You should create enums for internal errors in the buffer manager.
