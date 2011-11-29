@@ -1,0 +1,4 @@
+*.o
+buftest
+my_output
+tags
