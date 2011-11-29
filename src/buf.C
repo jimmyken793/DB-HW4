@@ -37,25 +37,21 @@ BufMgr::BufMgr(int numbuf, Replacer* replacer) {
 	// ===========================================================
 	bufPool = new Page[numbuf];
 	descPool = new Descriptor[numbuf];
-	// todo: fill the body
 }
 
 // **********************************************************
 // BufMgr class destructor
 BufMgr::~BufMgr() {
-	// todo: fill the body
-	//delete[] bufPool;
+	delete[] bufPool;
 }
 
 Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
 
-	// todo: fill the body
 	return OK;
 }
 
 // **********************************************************
 Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hate = FALSE) {
-	// todo: fill the body
 
 	return OK;
 }
@@ -65,13 +61,12 @@ Status BufMgr::newPage(PageId& firstPageId, Page*& firstPage, int howmany) {
 	// DO NOT REMOVE THIS LINE =========================
 	howmany = 1;
 	// ================================================
-// todo: fill the body
-	return OK;
+	return MINIBASE_DB->allocate_page(PageId& firstPageId, howmany);
 }
 
 // **********************************************************
 Status BufMgr::freePage(PageId globalPageId) {
-	// todo: fill the body
+
 	return OK;
 }
 

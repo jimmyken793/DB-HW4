@@ -29,7 +29,6 @@ enum MODE {
 class Descriptor {
 	public:
 		Descriptor();
-		Page page;
 		unsigned int pageNumber, mode, pinCount, dirtybit;
 };
 
