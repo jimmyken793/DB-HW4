@@ -9,6 +9,8 @@
 #include "page.h"
 #include <list>
 
+using namespace std;
+
 #define NUMBUF 20   
 // Default number of frames, artifically small number for ease of debugging.
 
@@ -21,7 +23,7 @@ int hash(int i);
 
 // You should create enums for internal errors in the buffer manager.
 enum bufErrCodes {
-	PAGE_NOT_FOUND, PAGE_PINNED, BUFFER_FULL
+	PAGE_NOT_FOUND, PAGE_PINNED, BUFFER_FULL, PIN_LOCKED_PAGE
 };
 
 class Replacer;
@@ -87,6 +89,7 @@ class BufMgr {
 		FrameDesc* descs;
 		list<int> hatelist;
 		list<int> lovelist;
+		Map table;
 
 	public:
 		// The physical buffer pool of pages.
@@ -150,6 +153,7 @@ class BufMgr {
 
 		Page* getPage(PageId pageid);
 		int getFrame(PageId pageid);
+		int findFreeFrame();
 		int getFreeFrame();
 
 		// DO NOT REMOVE THESE METHODS ================================================

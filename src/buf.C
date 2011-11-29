@@ -46,13 +46,34 @@ BufMgr::~BufMgr() {
 }
 
 Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
+	int frame = table.get(PageId_in_a_DB);
+	if (frame >= 0) {
+		if (descs[frame].pinCount == 0) {
+			hatelist.remove(frame);
+			lovelist.remove(frame);
+		} else {
+			if (descs[frame].mode == READ_WRITE_MODE || descs[frame].mode == READ_WRITE_MODE)
+				return MINIBASE_FIRST_ERROR(BUFMGR, PIN_LOCKED_PAGE);
+		}
+		descs[frame].dirty = false;
+		descs[frame].pinCount++;
+		page = &(frames[frame]);
+		return OK;
+	} else {
 
+	}
 	return OK;
 }
 
 // **********************************************************
 Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hate = FALSE) {
 
+	int frame = table.get(globalPageId_in_a_DB);
+	if (frame >= 0) {
+
+	} else {
+		return MINIBASE_FIRST_ERROR(BUFMGR, PAGE_NOT_FOUND);
+	}
 	return OK;
 }
 
@@ -60,17 +81,16 @@ Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hat
 Status BufMgr::newPage(PageId& firstPageId, Page*& firstPage, int howmany) {
 	// DO NOT REMOVE THIS LINE =========================
 	howmany = 1;
-	int frame = getFreeFrame();
+	int frame = findFreeFrame();
 	if (frame < 0) {
 		return MINIBASE_FIRST_ERROR(BUFMGR, BUFFER_FULL);
 	}
 	Status ast = MINIBASE_DB->allocate_page(firstPageId, howmany);
 	if (ast != OK)
 		return MINIBASE_CHAIN_ERROR(BUFMGR, ast);
-
 	descs[frame].init(firstPageId, READ_WRITE_MODE, 1, false);
 	firstPage = &frames[frame];
-	return OK;
+	table.put(firstPageId, frame);
 	return OK;
 }
 
@@ -81,6 +101,7 @@ Status BufMgr::freePage(PageId globalPageId) {
 		if (descs[pos].pinCount > 0) {
 			return MINIBASE_FIRST_ERROR(BUFMGR,PAGE_PINNED);
 		}
+		table.remove(globalPageId);
 	}
 	Status st = MINIBASE_DB->allocate_page(globalPageId, 1);
 	if (st != OK) {
@@ -118,28 +139,28 @@ Status BufMgr::flushAllPages() {
 }
 
 Page* BufMgr::getPage(PageId pageid) {
-	for (unsigned int i = 0; i < poolsize; i++) {
-		if (descs[i].pageNumber == poolsize) {
-			return &(frames[i]);
-		}
+	int frame = getFrame(pageid);
+	if (frame >= 0) {
+		return &(frames[frame]);
 	}
 	return NULL;
 }
 int BufMgr::getFrame(PageId pageid) {
-	for (unsigned int i = 0; i < poolsize; i++) {
-		if (descs[i].pageNumber == poolsize) {
-			return i;
-		}
-	}
-	return -1;
+	return table.get(pageid);
 }
 
-int BufMgr::getFreeFrame() {
+int BufMgr::findFreeFrame() {
 	for (unsigned int i = 0; i < poolsize; i++) {
 		if (descs[i].pageNumber < 0) {
 			return i;
 		}
 	}
+	return -1;
+}
+int BufMgr::getFreeFrame() {
+	int frame = findFreeFrame();
+	if (frame >= 0)
+		return frame;
 	return -1;
 }
 
