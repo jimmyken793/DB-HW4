@@ -1,0 +1,5 @@
+#Tue Nov 29 22:41:14 CST 2011
+content-types/enabled=true
+content-types/org.eclipse.cdt.core.cxxHeader/file-extensions=h
+content-types/org.eclipse.cdt.core.cxxSource/file-extensions=c
+eclipse.preferences.version=1
