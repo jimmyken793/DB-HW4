@@ -23,7 +23,7 @@ int hash(int i);
 
 // You should create enums for internal errors in the buffer manager.
 enum bufErrCodes {
-	PAGE_NOT_FOUND, PAGE_PINNED, BUFFER_FULL, PIN_LOCKED_PAGE
+	PAGE_NOT_FOUND, PAGE_PINNED, BUFFER_FULL, PIN_LOCKED_PAGE, POOL_FULL
 };
 
 class Replacer;

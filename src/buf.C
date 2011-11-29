@@ -60,17 +60,46 @@ Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
 		page = &(frames[frame]);
 		return OK;
 	} else {
-
+		frame = getFreeFrame();
+		if (frame > 0) {
+			Status st = MINIBASE_DB->read_page(PageId_in_a_DB, &frames[frame]);
+			if (st != OK)
+				return MINIBASE_CHAIN_ERROR(BUFMGR, st);
+			table.put(PageId_in_a_DB, frame);
+			descs[frame].pageNumber = PageId_in_a_DB;
+		} else {
+			return MINIBASE_FIRST_ERROR(BUFMGR, POOL_FULL);
+		}
 	}
 	return OK;
 }
 
 // **********************************************************
 Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hate = FALSE) {
-
 	int frame = table.get(globalPageId_in_a_DB);
 	if (frame >= 0) {
-
+		if (hate == true) {
+			bool found = false;
+			for (list<int>::iterator iter = lovelist.begin(); iter != lovelist.end(); iter++) {
+				if (*iter == frame) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				hatelist.remove(frame);
+				hatelist.push_front(frame);
+			}
+		} else {
+			for (list<int>::iterator iter = hatelist.begin(); iter != hatelist.end(); iter++) {
+				if (*iter == frame) {
+					hatelist.remove(frame);
+					break;
+				}
+			}
+			lovelist.remove(frame);
+			lovelist.push_front(frame);
+		}
 	} else {
 		return MINIBASE_FIRST_ERROR(BUFMGR, PAGE_NOT_FOUND);
 	}
@@ -85,9 +114,9 @@ Status BufMgr::newPage(PageId& firstPageId, Page*& firstPage, int howmany) {
 	if (frame < 0) {
 		return MINIBASE_FIRST_ERROR(BUFMGR, BUFFER_FULL);
 	}
-	Status ast = MINIBASE_DB->allocate_page(firstPageId, howmany);
-	if (ast != OK)
-		return MINIBASE_CHAIN_ERROR(BUFMGR, ast);
+	Status st = MINIBASE_DB->allocate_page(firstPageId, howmany);
+	if (st != OK)
+		return MINIBASE_CHAIN_ERROR(BUFMGR, st);
 	descs[frame].init(firstPageId, READ_WRITE_MODE, 1, false);
 	firstPage = &frames[frame];
 	table.put(firstPageId, frame);
