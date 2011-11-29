@@ -78,6 +78,19 @@ Status BufMgr::pinPage(PageId PageId_in_a_DB, Page*& page, MODE mode) {
 Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = FALSE, int hate = FALSE) {
 	int frame = table.get(globalPageId_in_a_DB);
 	if (frame >= 0) {
+		if (descs[frame].pinCount == 0) {
+			return MINIBASE_FIRST_ERROR(BUFMGR, PIN_COUNTE_RROR);
+		}
+		if (dirty) {
+			Status st = MINIBASE_DB->write_page(descs[frame].pageNumber, &frames[frame]);
+			if (st != OK)
+				return MINIBASE_CHAIN_ERROR(BUFMGR, st);
+		}
+		descs[frame].dirty = dirty;
+		descs[frame].pinCount--;
+		if (descs[frame].pinCount > 0) {
+			return OK;
+		}
 		if (hate == true) {
 			bool found = false;
 			for (list<int>::iterator iter = lovelist.begin(); iter != lovelist.end(); iter++) {
