@@ -94,11 +94,6 @@ Status BufMgr::unpinPage(PageId globalPageId_in_a_DB, int dirty = false, int hat
 		if (descs[frame].pinCount == 0) {
 			return MINIBASE_FIRST_ERROR(BUFMGR, PIN_COUNTE_RROR);
 		}
-		if (dirty == true) {
-			Status st = MINIBASE_DB->write_page(descs[frame].pageNumber, &frames[frame]);
-			if (st != OK)
-				return MINIBASE_CHAIN_ERROR(BUFMGR, st);
-		}
 		descs[frame].dirty = dirty;
 		descs[frame].pinCount--;
 		if (descs[frame].pinCount > 0) {
@@ -167,14 +162,18 @@ Status BufMgr::freePage(PageId globalPageId) {
 
 // **********************************************************
 Status BufMgr::flushPage(PageId pageId) {
-	Page* page = getPage(pageId);
-	if (page != NULL) {
-		Status st = MINIBASE_DB->write_page(pageId, page);
-		if (st != OK) {
-			return MINIBASE_CHAIN_ERROR(BUFMGR, st);
-		} else {
-			return st;
+	int frame = getFrame(pageId);
+	if (frame >= 0) {
+		if (descs[frame].dirty == true) {
+			Status st = MINIBASE_DB->write_page(pageId, &(frames[frame]));
+			if (st != OK) {
+				return MINIBASE_CHAIN_ERROR(BUFMGR, st);
+			} else {
+				descs[frame].dirty = false;
+				return st;
+			}
 		}
+		return OK;
 	}
 	return MINIBASE_FIRST_ERROR(BUFMGR,PAGE_NOT_FOUND);
 }
