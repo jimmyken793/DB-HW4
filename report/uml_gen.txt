@@ -1,0 +1,14 @@
+
+[Map|-table:list\<pair\<Pageid int\>int\>;|+get():int;+put():void;+remove():int]
+
+[BufMgr|-poolsize: unsigned int;-frames: Page*;-descs: FrameDesc*;-hatelist:list\<int\>;-lovelist:list\<\int\>;-table: Map|+BufMgr();+~BufMgr()+pinPage();+unpinPage();+newPage();+freePage();+flushPage();+flushAllPages();+getPage();+getFrame();+findFreeFrame();+getFreeFrame();+pinPage();+unpinPage()]
+
+
+[FramDesc|+pageNumber:int;+pinCount:int;mode:MODE;dirty:bool|+FrameDesc();init():void]
+
+
+--
+
+[BufMgr|-poolsize: unsigned int;-frames: Page*;-descs: FrameDesc*;-hatelist:list\<int\>;-lovelist:list\<\int\>;-table: Map|+BufMgr();+~BufMgr()+pinPage();+unpinPage();+newPage();+freePage();+flushPage();+flushAllPages();+getPage();+getFrame();+findFreeFrame();+getFreeFrame(    );+pinPage();+unpinPage()]<>1->1[Map|-table:list\<pair\<Pageid int\>int\>;|+get():int;+put():void;+remove():int],[BufMgr|-poolsize: unsigned int;-frames: Page*;-descs: FrameDesc*;-hatelist:list\<int\>;-lovelist:list\<\int\>;-table: Map|+BufMgr();+~BufMgr()+pinPage();+unpinPage();+newPage();+freePage();+flushPage();+flushAllPages();+getPage();+getFrame();+findFreeFrame();+getFreeFrame(    );+pinPage();+unpinPage()]<>1->*[FramDesc|+pageNumber:int;+pinCount:int;mode:MODE;dirty:bool|+FrameDesc();init():void]
+
+[BufMgr|-poolsize: unsigned int;-frames: Page*;-descs: FrameDesc*;-hatelist:list\<int\>;-lovelist:list\<\int\>;-table: Map|+BufMgr();+~BufMgr()+pinPage();+unpinPage();+newPage();+freePage();+flushPage();+flushAllPages();+getPage();+getFrame();+findFreeFrame();+getFreeFrame(    );+pinPage();+unpinPage()]<>1->1[Map|-table:list\<pair\<Pageid int\>int\>;|+get():int;+put():void;+remove():int],[BufMgr|-poolsize: unsigned int;-frames: Page*;-descs: FrameDesc*;-hatelist:list\<int\>;-lovelist:list\<\int\>;-table: Map|+BufMgr();+~BufMgr()+pinPage();+unpinPage();+newPage();+freePage();+flushPage();+flushAllPages();+getPage();+getFrame();+findFreeFrame();+getFreeFrame();+pinPage();+unpinPage()]<>1->*[FramDesc|+pageNumber:int;+pinCount:int;mode:MODE;dirty:bool|+FrameDesc();init():void],[note: b97902013  b97902115 db homework 4 {bg:cornsilk}]
